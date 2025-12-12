@@ -1,4 +1,5 @@
 #include "api_server.h"
+#include "config.h"
 #include <iostream>
 #include <thread>
 #include <mutex>
@@ -42,9 +43,15 @@ bool sendCommandToTarget(const std::string& command, const std::string& body = "
     serverAddr.sin_port = htons(targetPort);
 
     // Устанавливаем таймаут подключения
+    // В режиме --notel используем очень короткий таймаут для быстрого ответа
     struct timeval timeout;
-    timeout.tv_sec = 2;
-    timeout.tv_usec = 0;
+    if (g_ignore_telemetry) {
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 100000; // 100мс для режима без телеметрии
+    } else {
+        timeout.tv_sec = 2;
+        timeout.tv_usec = 0;
+    }
     setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 

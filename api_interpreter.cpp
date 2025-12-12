@@ -1,4 +1,5 @@
 #include "api_interpreter.h"
+#include "../config.h"
 #include <iostream>
 #include <thread>
 #include <mutex>
@@ -13,6 +14,8 @@
 #include <chrono>
 #include <iomanip>
 #include <cmath>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 static int serverSocket = -1;
 static bool interpreterRunning = false;
@@ -236,12 +239,30 @@ bool sendTelemetryToApiServer(const SharedTelemetryData& data) {
 
 // Запись команды в файл (как это делает pybind)
 void writeCommandToFile(const std::string& command) {
-    std::ofstream cmdFile(COMMAND_FILE, std::ios::app);
-    if (cmdFile.is_open()) {
-        cmdFile << command << std::endl;
-        cmdFile.close();
+    // В режиме --notel используем неблокирующую запись для предотвращения зависаний
+    if (g_ignore_telemetry) {
+        // Используем низкоуровневый API для неблокирующей записи
+        int fd = open(COMMAND_FILE.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
+        if (fd >= 0) {
+            std::string cmdLine = command + "\n";
+            write(fd, cmdLine.c_str(), cmdLine.length());
+            close(fd);
+        } else {
+            // Fallback на обычную запись
+            std::ofstream cmdFile(COMMAND_FILE, std::ios::app);
+            if (cmdFile.is_open()) {
+                cmdFile << command << std::endl;
+                cmdFile.close();
+            }
+        }
     } else {
-        std::cerr << "❌ Ошибка записи в файл команд: " << COMMAND_FILE << std::endl;
+        std::ofstream cmdFile(COMMAND_FILE, std::ios::app);
+        if (cmdFile.is_open()) {
+            cmdFile << command << std::endl;
+            cmdFile.close();
+        } else {
+            std::cerr << "❌ Ошибка записи в файл команд: " << COMMAND_FILE << std::endl;
+        }
     }
 }
 

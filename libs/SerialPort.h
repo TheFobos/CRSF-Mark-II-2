@@ -23,6 +23,9 @@ public:
     virtual int writeByte(uint8_t b);
 
     virtual void flush();
+    
+    // Получить файловый дескриптор (для неблокирующих операций)
+    int getFd() const { return _fd; }
 
 private:
     std::string _path;

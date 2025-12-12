@@ -1,6 +1,8 @@
 #include "CrsfSerial.h"
-#include "config.h"
+#include "../../config.h"
 #include <cstring>
+#include <fcntl.h>
+#include <unistd.h>
 
 
 // Конструктор под Raspberry Pi: SerialPort уже открыт с нужной скоростью
@@ -229,6 +231,9 @@ void CrsfSerial::write(uint8_t b)
 
 void CrsfSerial::write(const uint8_t* buf, size_t len)
 {
+    // В режиме --notel запись выполняется обычным образом,
+    // но проверка линка уже пропущена в queuePacket(), 
+    // поэтому блокировки не будет
     _port.write(buf, len);
 }
 
