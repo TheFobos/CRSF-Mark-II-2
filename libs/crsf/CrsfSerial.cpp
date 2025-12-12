@@ -150,6 +150,10 @@ void CrsfSerial::shiftRxBuffer(uint8_t cnt)
 void CrsfSerial::packetChannelsPacked(const crsf_header_t* p)
 {
     crsf_channels_t* ch = (crsf_channels_t*)&p->data;
+    
+    // Захватываем мьютекс для записи каналов
+    std::lock_guard<std::mutex> lock(_channelsMutex);
+    
     _channels[0] = ch->ch0;
     _channels[1] = ch->ch1;
     _channels[2] = ch->ch2;
@@ -285,11 +289,37 @@ void CrsfSerial::setPassthroughMode(bool val, unsigned int baud)
 }
 */
 
+// Асинхронная обработка отправки (вызывается из основного цикла)
+// Отправляет пакет если есть изменения каналов (флаг установлен) или для поддержания связи
+// Периодичность вызова управляется из main.cpp (обычно каждые 10мс)
+void CrsfSerial::processSend()
+{
+    // Проверяем, можно ли слать (если не в режиме --notel, нужен активный линк)
+    if (!g_ignore_telemetry && !_linkIsUp) {
+        // Если линк не активен и не режим --notel, не отправляем
+        // Но сбрасываем флаг чтобы не накапливать запросы
+        _needSendPacket = false;
+        return;
+    }
+    
+    // Отправляем если: есть изменения каналов (флаг установлен) 
+    // или для поддержания связи (всегда отправляем периодически)
+    // Периодичность контролируется из main.cpp, здесь просто отправляем
+    packetChannelsSend();
+    
+    // Сбрасываем флаг после отправки
+    _needSendPacket = false;
+}
+
+// Приватный метод для реальной отправки пакета каналов
 void CrsfSerial::packetChannelsSend()
 {
-
     static int channels[CRSF_NUM_CHANNELS];
     const int crsfDelta = (CRSF_CHANNEL_VALUE_2000 - CRSF_CHANNEL_VALUE_1000);
+    
+    // Захватываем мьютекс для чтения каналов
+    std::lock_guard<std::mutex> lock(_channelsMutex);
+    
     for (unsigned int i = 0; i < CRSF_NUM_CHANNELS; ++i) {
         int usTarget = _channels[i];
         if (usTarget < 1000) usTarget = 1000;

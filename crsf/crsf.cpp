@@ -35,7 +35,7 @@ void crsfSetChannel(unsigned int ch, int value)
 
 void crsfSendChannels()
 {
-  crsf->packetChannelsSend(); // Используем указатель на активный порт
+  crsf->processSend(); // Асинхронная отправка через processSend
 }
 
 // Экспортируем как extern "C" для загрузки через ctypes

@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
+#include <atomic>
 #include "crc8.h"
 #include "crsf_protocol.h"
 #include "../SerialPort.h"
@@ -30,6 +32,7 @@ void queuePacket(uint8_t addr, uint8_t type, const void* payload, uint8_t len);
 int getChannel(unsigned int ch) const
 {
     if (ch >= 1 && ch <= CRSF_NUM_CHANNELS) {
+        std::lock_guard<std::mutex> lock(_channelsMutex);
         return _channels[ch - 1];
     }
     return 1500; // Safe default value for invalid channel
@@ -38,9 +41,11 @@ int getChannel(unsigned int ch) const
 void setChannel(unsigned int ch, int value)
 {
     if (ch >= 1 && ch <= CRSF_NUM_CHANNELS) {
+        std::lock_guard<std::mutex> lock(_channelsMutex);
         _channels[ch - 1] = value;
+        _needSendPacket = true; // Флаг для асинхронной отправки
     }
-    }
+}
 
     const crsfLinkStatistics_t* getLinkStatistics() const { return &_linkStatistics; }
     const crsf_sensor_gps_t* getGpsSensor() const { return &_gpsSensor; }
@@ -76,7 +81,8 @@ void setChannel(unsigned int ch, int value)
     //void (*onPacketLinkStatistics)(crsfLinkStatistics_t* ls);
     //void (*onPacketGps)(crsf_sensor_gps_t* gpsSensor);
 
-    void packetChannelsSend();
+    // Асинхронная обработка отправки (вызывать из основного цикла)
+    void processSend();
     void packetAttitude(const crsf_header_t* p);
     void packetFlightMode(const crsf_header_t* p);
     void packetBatterySensor(const crsf_header_t* p);
@@ -106,6 +112,10 @@ private:
     uint32_t _lastChannelsPacket;
     bool _linkIsUp;
     int _channels[CRSF_NUM_CHANNELS];
+    
+    // Мьютекс для защиты данных каналов и флаг для асинхронной отправки
+    mutable std::mutex _channelsMutex;
+    std::atomic<bool> _needSendPacket{false};
 
     void handleSerialIn();
     void handleByteReceived();
@@ -118,4 +128,7 @@ private:
     void packetChannelsPacked(const crsf_header_t* p);
     void packetLinkStatistics(const crsf_header_t* p);
     void packetGps(const crsf_header_t* p);
+    
+    // Приватный метод для реальной отправки (вызывается из processSend)
+    void packetChannelsSend();
 };

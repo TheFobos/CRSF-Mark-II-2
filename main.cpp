@@ -12,8 +12,7 @@
 #include "libs/joystick.h"
 #include "libs/crsf/CrsfSerial.h"
 
-// Определение глобальной переменной для флага --notel
-bool g_ignore_telemetry = false;
+// g_ignore_telemetry определена в globals.cpp
 
 // Простая функция для получения режима работы
 // Режим теперь управляется через pybind модуль, но для совместимости
@@ -175,6 +174,9 @@ int main(int argc, char* argv[]) {
             }
           }
         } else if (cmd == "sendChannels") {
+          // Команда sendChannels больше не нужна - отправка происходит автоматически
+          // через processSend() в основном цикле, но оставляем для совместимости
+          // (просто триггерим отправку через processSend)
           crsfSendChannels();
         } else if (cmd.find("setMode") == 0) {
           std::string mode = cmd.substr(8); // "setMode " = 8 символов
@@ -223,10 +225,12 @@ int main(int argc, char* argv[]) {
       if (axis3_ok) crsfSetChannel(4, axisToUs(ax0)); // Yaw
     }
 
-    // Отправляем RC-каналы с частотой ~100 Гц для реалтайма
+    // Асинхронная отправка RC-каналов с частотой ~100 Гц для реалтайма
+    // processSend() отправляет пакет только если были изменения каналов (флаг _needSendPacket)
+    // или периодически, если нужно поддерживать связь
     if (currentMillis - lastSendMs >= crsfSendPeriodMs) {
       lastSendMs = currentMillis;
-      crsfSendChannels();
+      crsfSendChannels(); // Вызывает processSend() внутри
     }
 
 

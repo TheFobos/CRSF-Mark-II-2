@@ -1,5 +1,5 @@
 #include "api_interpreter.h"
-#include "../config.h"
+#include "config.h"
 #include <iostream>
 #include <thread>
 #include <mutex>
@@ -555,14 +555,18 @@ int main(int argc, char* argv[]) {
     int apiServerPort = 8081;
     
     // Парсинг аргументов командной строки
-    if (argc > 1) {
-        port = std::stoi(argv[1]);
-    }
-    if (argc > 2) {
-        apiServerHost = argv[2];
-    }
-    if (argc > 3) {
-        apiServerPort = std::stoi(argv[3]);
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--notel") {
+            g_ignore_telemetry = true;
+            std::cout << "[INFO] Running in NO-TELEMETRY mode. Safety checks disabled." << std::endl;
+        } else if (i == 1 && arg.find_first_not_of("0123456789") == std::string::npos) {
+            port = std::stoi(arg);
+        } else if (i == 2) {
+            apiServerHost = arg;
+        } else if (i == 3 && arg.find_first_not_of("0123456789") == std::string::npos) {
+            apiServerPort = std::stoi(arg);
+        }
     }
     
     std::cout << "🚀 Запуск CRSF API интерпретатора..." << std::endl;
