@@ -22,14 +22,17 @@ bool SerialPort::open() {
         return false; // не удалось открыть устройство
     }
 
-    // Сбрасываем флаг O_NONBLOCK после открытия
-    int flags = fcntl(_fd, F_GETFL, 0);
-    if (flags >= 0) fcntl(_fd, F_SETFL, flags & ~O_NONBLOCK);
-
+    // ВАЖНО: Сначала настраиваем termios2 с таймаутами
     if (!configureTermios2(_baud)) {
         close();
         return false;
     }
+
+    // ВАЖНО: Сбрасываем флаг O_NONBLOCK ПОСЛЕ настройки termios2
+    // Это позволяет использовать таймауты VMIN/VTIME для неблокирующего чтения
+    int flags = fcntl(_fd, F_GETFL, 0);
+    if (flags >= 0) fcntl(_fd, F_SETFL, flags & ~O_NONBLOCK);
+
     return true;
 }
 
@@ -54,9 +57,13 @@ bool SerialPort::configureTermios2(uint32_t baud) {
     tio2.c_ispeed = baud;
     tio2.c_ospeed = baud;
 
-    // Минимум один байт, таймаут ~10мс
-    tio2.c_cc[VMIN] = 0;
-    tio2.c_cc[VTIME] = 1;
+    // ВАЖНО: Отключаем блокировку чтения!
+    // VMIN=0: читать, даже если 0 байт пришло (не ждать минимум 1 байт)
+    // VTIME=1: ждать максимум 0.1 сек (1 децисекунда) перед возвратом
+    // Без этих настроек read() будет блокироваться навечно, если нет данных
+    // и заблокирует API сервер, который пытается записать в порт
+    tio2.c_cc[VMIN] = 0;   // Читать, даже если 0 байт пришло
+    tio2.c_cc[VTIME] = 1;  // Ждать максимум 0.1 сек (1 децисекунда)
 
     if (ioctl(_fd, TCSETS2, &tio2) < 0) return false;
 
@@ -67,8 +74,14 @@ bool SerialPort::configureTermios2(uint32_t baud) {
 
 int SerialPort::readByte(uint8_t &b) {
     uint8_t tmp;
+    // С настройками VMIN=0 и VTIME=1, read() вернет:
+    // - 1: если байт прочитан
+    // - 0: если таймаут (0.1 сек) и нет данных (не EOF!)
+    // - -1: если ошибка
     int r = ::read(_fd, &tmp, 1);
     if (r == 1) { b = tmp; return 1; }
+    // Возвращаем 0 при таймауте (это нормально, не ошибка)
+    // Это позволяет основному циклу "дышать" и не блокировать API
     return r;
 }
 

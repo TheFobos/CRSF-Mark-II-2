@@ -25,11 +25,13 @@ void CrsfSerial::loop()
 void CrsfSerial::handleSerialIn()
 {
     // Читаем не более 32 байт за раз, чтобы не блокировать основной цикл
+    // Благодаря настройкам VMIN=0 и VTIME=1 в SerialPort.cpp, readByte() вернет 0
+    // через 0.1 сек, если нет данных, что позволяет циклу "дышать" и не блокировать API
     for (int i = 0; i < 32; ++i) { 
         uint8_t b;
         int r = _port.readByte(b);
         if (r <= 0) {
-            break; // Прерываем, если в порту больше нет данных
+            break; // Прерываем, если в порту больше нет данных или таймаут
         }
 
         _lastReceive = rpi_millis();
