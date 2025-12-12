@@ -12,4 +12,8 @@
 #define CRSF_PORT_PRIMARY "/dev/ttyAMA0"
 #define CRSF_PORT_SECONDARY "/dev/ttyS0"
 
+// Глобальный флаг для режима "Blind Transmission" (без проверки телеметрии)
+// Устанавливается через аргумент командной строки --notel
+extern bool g_ignore_telemetry;
+
 #endif

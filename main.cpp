@@ -5,11 +5,15 @@
 #include <unistd.h>
 #include <cstdio>
 #include <sstream>
+#include <iostream>
 
 #include "crsf/crsf.h"
 #include "libs/rpi_hal.h"
 #include "libs/joystick.h"
 #include "libs/crsf/CrsfSerial.h"
+
+// Определение глобальной переменной для флага --notel
+bool g_ignore_telemetry = false;
 
 // Простая функция для получения режима работы
 // Режим теперь управляется через pybind модуль, но для совместимости
@@ -20,7 +24,15 @@ std::string getWorkMode() {
 
 // Главная точка входа Linux-приложения для Raspberry Pi
 // Полная замена Arduino setup()/loop()
-int main() {
+int main(int argc, char* argv[]) {
+    // Парсинг аргументов командной строки
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--notel") {
+            g_ignore_telemetry = true;
+            std::cout << "[INFO] Running in NO-TELEMETRY mode. Safety checks disabled." << std::endl;
+        }
+    }
 #if USE_CRSF_RECV == true
   crsfInitRecv(); // Запуск CRSF приёма
 #endif
