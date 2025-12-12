@@ -5,6 +5,7 @@ LDFLAGS := -lpthread -Wl,--export-dynamic
 # Исходные файлы основного приложения
 SRC := \
 	main.cpp \
+	globals.cpp \
 	crsf/crsf.cpp \
 	libs/crsf/CrsfSerial.cpp \
 	libs/SerialPort.cpp \
@@ -28,11 +29,11 @@ $(BIN): $(OBJ)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Сборка API сервера
-$(API_SERVER_BIN): api_server.o
+$(API_SERVER_BIN): api_server.o globals.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Сборка API интерпретатора
-$(API_INTERPRETER_BIN): api_interpreter.o
+$(API_INTERPRETER_BIN): api_interpreter.o globals.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Правило компиляции объектных файлов
@@ -41,7 +42,7 @@ $(API_INTERPRETER_BIN): api_interpreter.o
 
 # Очистка артефактов сборки
 clean:
-	rm -f $(OBJ) $(BIN) api_server.o api_interpreter.o $(API_SERVER_BIN) $(API_INTERPRETER_BIN)
+	rm -f $(OBJ) $(BIN) api_server.o api_interpreter.o globals.o $(API_SERVER_BIN) $(API_INTERPRETER_BIN)
 
 .PHONY: all clean
 
